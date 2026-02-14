@@ -1,17 +1,31 @@
 import { NextResponse } from 'next/server';
+import { NodeSSH } from 'node-ssh';
 
 export async function GET() {
-  const CLOUDFLARE_URL = 'https://autotouch.smartgram.jp'; 
+  const ssh = new NodeSSH();
+  
   try {
-    const res = await fetch(`${CLOUDFLARE_URL}`, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 0 }
+    await ssh.connect({
+      host: '100.126.108.117', // iPhoneのTailscale IP
+      username: 'root',
+      password: '0324',
+      port: 22,
+      readyTimeout: 10000
     });
+
+    const result = await ssh.execCommand('ls /var/mobile/Library/AutoTouch/Scripts/*.{lua,at}');
     
-    const data = await res.json();
-    return NextResponse.json(data);
+    const files = result.stdout.split('\n')
+      .filter(line => line.trim() !== '')
+      .map(line => {
+        const name = line.split('/').pop();
+        return { name, path: line };
+      });
+
+    ssh.dispose();
+    return NextResponse.json(files);
   } catch (error) {
-    console.error('Fetch Error:', error);
-    return NextResponse.json({ error: 'Failed to connect to Custom API' }, { status: 500 });
+    console.error('SSH Error:', error);
+    return NextResponse.json({ error: 'Failed to connect via SSH' }, { status: 500 });
   }
 }
