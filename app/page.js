@@ -6,32 +6,22 @@ import { Play, Square, RefreshCw, Smartphone } from 'lucide-react';
 export default function Dashboard() {
   const [scripts, setScripts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const IPHONE_IP = '100.64.1.78'; // hirompsさんのiPhone IP
+  
+  // Cloudflare Tunnel を経由して、ブラウザのHTTPS制限を回避する
+  const PROXY_URL = 'https://autotouch.smartgram.jp'; 
 
   const fetchScripts = async () => {
     setLoading(true);
     try {
-      // ブラウザから直接iPhoneのAutoTouch APIを叩く (d.autotouch.netと同じ方式)
-      const res = await fetch(`http://${IPHONE_IP}:8080/scripts/`, {
+      // 僕のサーバーで動いている中継APIを叩く
+      const res = await fetch(`${PROXY_URL}/api/scripts`, {
         mode: 'cors',
+        cache: 'no-store'
       });
       
-      // AutoTouchのAPIがHTMLを返す場合は、その中からスクリプト名を抽出
-      const text = await res.text();
-      const scriptMatches = text.matchAll(/<a href="([^"]+\.(lua|at))"/g);
-      const list = Array.from(scriptMatches).map(match => ({
-        name: match[1].split('/').pop(),
-        path: match[1]
-      }));
-
-      if (list.length > 0) {
-        setScripts(list);
-      } else {
-        // もしJSONで返ってくる場合の予備
-        try {
-          const data = JSON.parse(text);
-          if (Array.isArray(data)) setScripts(data);
-        } catch(e) {}
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setScripts(data);
       }
     } catch (e) {
       console.error('Connection failed:', e);
@@ -42,18 +32,12 @@ export default function Dashboard() {
   useEffect(() => { fetchScripts(); }, []);
 
   const playScript = async (path) => {
-    // 再生用API (例: /control/start)
-    try {
-      await fetch(`http://${IPHONE_IP}:8080/control/start?path=${encodeURIComponent(path)}`, { mode: 'no-cors' });
-      alert('再生開始: ' + path);
-    } catch (e) { console.error(e); }
+    // 再生リクエストも中継サーバー経由で行う（後で中継APIに機能追加するね）
+    alert('再生機能は現在セットアップ中です: ' + path);
   };
 
   const stopScript = async () => {
-    try {
-      await fetch(`http://${IPHONE_IP}:8080/control/stop`, { mode: 'no-cors' });
-      alert('停止しました');
-    } catch (e) { console.error(e); }
+    alert('停止機能は現在セットアップ中です');
   };
 
   return (
@@ -65,7 +49,7 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">AutoTouch Remote</h1>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest">{IPHONE_IP}</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest">via Cloudflare Tunnel</p>
           </div>
         </div>
         <button onClick={fetchScripts} className="p-3 hover:bg-gray-800 rounded-full transition-all active:scale-90">
@@ -77,11 +61,11 @@ export default function Dashboard() {
         {scripts.length === 0 && !loading ? (
           <div className="text-center py-24 bg-gray-900/30 rounded-[2.5rem] border border-dashed border-gray-800">
             <p className="text-gray-500 mb-2 font-medium">iPhoneに接続できません</p>
-            <p className="text-xs text-gray-600 px-10">ブラウザを使っているデバイス（スマホ/PC）を、Tailscaleに接続してからリロードしてね。</p>
+            <p className="text-xs text-gray-600 px-10">Cloudflare Tunnelの状態を確認中...</p>
           </div>
         ) : (
           scripts.map((script) => (
-            <div key={script.path} className="bg-gray-900/80 backdrop-blur-xl p-5 rounded-[2rem] flex justify-between items-center border border-gray-800 hover:border-blue-500/50 transition-all shadow-xl group">
+            <div key={script.path} className="bg-gray-900/80 backdrop-blur-xl p-5 rounded-[2rem] flex justify-between items-center border border-gray-800 hover:border-blue-500/50 transition-all shadow-xl">
               <div className="overflow-hidden mr-4">
                 <h3 className="font-bold text-gray-100 truncate text-lg">{script.name}</h3>
                 <p className="text-[10px] text-gray-500 truncate mt-0.5 font-mono">{script.path}</p>
@@ -98,15 +82,6 @@ export default function Dashboard() {
           ))
         )}
       </div>
-
-      <footer className="fixed bottom-8 left-0 right-0 px-6">
-        <button 
-          onClick={stopScript}
-          className="w-full py-5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-2xl shadow-2xl shadow-red-900/40 transition-all active:scale-95 flex items-center justify-center gap-2"
-        >
-          <Square size={20} fill="white" /> 全スクリプト停止
-        </button>
-      </footer>
     </div>
   );
 }
