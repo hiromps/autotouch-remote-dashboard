@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const IPHONE_IP = '100.64.1.78'; // hirompsさんのiPhone Tailscale IP
+  // iPhoneへ直接ではなく、OpenClawの中継サーバー(9999)を通す
+  // hiropi4さんのサーバーIPを指定
+  const PROXY_IP = '100.86.154.59'; 
   try {
-    const res = await fetch(`http://${IPHONE_IP}:8080/scripts/`, {
+    const res = await fetch(`http://${PROXY_IP}:9999/scripts/`, {
       headers: { 'Accept': 'application/json' },
       next: { revalidate: 0 }
     });
-    const data = await res.json();
+    // ボディが空の場合の対策
+    const text = await res.text();
+    if (!text) return NextResponse.json([]);
+    
+    const data = JSON.parse(text);
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to connect to iPhone' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Failed to connect via Proxy' }, { status: 500 });
   }
 }
